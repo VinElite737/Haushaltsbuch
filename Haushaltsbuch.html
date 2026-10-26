@@ -1,0 +1,230 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Haushaltsbuch</title>
+<style>
+:root{--bg:#f5f6f8;--card:#fff;--tx:#1b1f27;--mu:#6b7280;--bd:#e3e6ec;--ac:#2f6fed;--in:#16a34a;--out:#dc2626;--inb:#e7f6ec;--outb:#fdeaea;
+box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px);color-scheme:light}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--bg:#12141a;--card:#1b1f27;--tx:#eceef3;--mu:#98a0b0;--bd:#2c313c;--ac:#6d9bff;--in:#4ade80;--out:#f87171;--inb:#14301f;--outb:#3a1a1a;color-scheme:dark}}
+:root[data-theme="dark"]{--bg:#12141a;--card:#1b1f27;--tx:#eceef3;--mu:#98a0b0;--bd:#2c313c;--ac:#6d9bff;--in:#4ade80;--out:#f87171;--inb:#14301f;--outb:#3a1a1a;color-scheme:dark}
+html{scroll-padding-top:env(safe-area-inset-top,0px)}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--tx);font:15px/1.45 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif}
+main{max-width:1100px;margin:0 auto;padding:16px}
+header{display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin-bottom:16px}
+h1{font-size:22px;margin:0 auto 0 0}
+h2{font-size:16px;margin:0}
+select,input,button{font:inherit;color:var(--tx)}
+select,input{background:var(--card);border:1px solid var(--bd);border-radius:8px;padding:8px 10px;width:100%}
+button{background:var(--card);border:1px solid var(--bd);border-radius:8px;padding:7px 12px;cursor:pointer}
+button:hover{border-color:var(--ac)}
+button.p{background:var(--ac);border-color:var(--ac);color:#fff}
+button.d{color:var(--out)}
+button.s{padding:3px 8px;font-size:13px}
+header select{width:auto;min-width:160px}
+.grid{display:grid;gap:12px}
+.kpis{grid-template-columns:repeat(auto-fit,minmax(170px,1fr));margin-bottom:12px}
+.card{background:var(--card);border:1px solid var(--bd);border-radius:12px;padding:14px}
+.kpi small{color:var(--mu);display:block}
+.kpi b{font-size:24px}
+.in{color:var(--in)}.out{color:var(--out)}
+.ov{grid-template-columns:repeat(auto-fit,minmax(300px,1fr));margin-bottom:12px}
+.bar{display:grid;grid-template-columns:110px 1fr 80px;gap:8px;align-items:center;margin:6px 0;font-size:14px}
+.bar i{display:block;height:10px;border-radius:5px;background:var(--ac)}
+.bar span:last-child{text-align:right}
+table{width:100%;border-collapse:collapse;font-size:14px}
+th{color:var(--mu);font-weight:500;text-align:left;font-size:12px;padding:4px 6px}
+td{padding:6px;border-top:1px solid var(--bd)}
+td.n,th.n{text-align:right;white-space:nowrap}
+td.a{text-align:right;white-space:nowrap}
+.tag{font-size:12px;color:var(--mu)}
+.ph{display:flex;align-items:center;gap:6px;margin-bottom:10px}
+.ph h2{margin-right:auto}
+.sec{display:flex;align-items:center;justify-content:space-between;margin:12px 0 4px}
+.sec b{font-size:13px}
+.sum{display:flex;justify-content:space-between;padding:8px 10px;border-radius:8px;margin-top:12px;font-weight:600}
+.empty{color:var(--mu);font-size:13px;padding:6px 0}
+.k{font-weight:700;letter-spacing:1px;padding:3px 9px}
+textarea{width:100%;min-height:80px;background:var(--card);color:var(--tx);border:1px solid var(--bd);border-radius:8px;padding:8px;font:12px/1.4 ui-monospace,Menlo,Consolas,monospace}
+#menu{position:fixed;z-index:50;background:var(--card);border:1px solid var(--bd);border-radius:10px;padding:4px;min-width:150px;box-shadow:0 6px 24px rgba(0,0,0,.2)}
+#menu[hidden]{display:none}
+#menu button{display:block;width:100%;text-align:left;border:0;background:none;padding:8px 10px}
+#menu button:hover{background:var(--bg)}
+button.x{background:var(--out);border-color:var(--out);color:#fff}
+dialog p{margin:10px 0 0;color:var(--mu)}
+dialog{border:1px solid var(--bd);border-radius:14px;background:var(--card);color:var(--tx);width:min(400px,92vw);padding:18px}
+dialog::backdrop{background:rgba(0,0,0,.45)}
+label{display:block;font-size:13px;color:var(--mu);margin:10px 0 3px}
+.row{display:flex;gap:8px;justify-content:flex-end;margin-top:16px}
+</style>
+</head>
+<body>
+<main>
+<header>
+  <h1>Haushaltsbuch</h1>
+  <select id="hh" aria-label="Haushalt"></select>
+  <button id="hAdd">+ Haushalt</button>
+  <button id="hData">Export / Import</button>
+  <button id="hMenu" class="k" aria-label="Haushalt-Menü">⋯</button>
+</header>
+<div id="app"></div>
+</main>
+<dialog id="dlg"></dialog>
+<div id="menu" hidden></div>
+
+<script>
+const CATS=["Wohnen","Kredite","Versicherungen","Entertainment","Sparen","Gesundheit","Lebensmittel","Mobilität","Sonstiges"];
+const ICATS=["Gehalt","Nebenverdienst","Sonstiges"];
+const FREQ={m:["monatlich",1],q:["vierteljährlich",3],y:["jährlich",12]};
+const KEY="haushaltsbuch-v2";
+let uid=()=>Math.random().toString(36).slice(2,9);
+function blank(){return{cur:null,hh:[{id:uid(),name:"Mein Haushalt",persons:[]}]}}
+let S;
+try{S=JSON.parse(localStorage.getItem(KEY))}catch(x){}
+if(!S||!S.hh||!S.hh.length)S=blank();
+if(!S.cur||!S.hh.find(h=>h.id===S.cur))S.cur=S.hh[0].id;
+const save=()=>{try{localStorage.setItem(KEY,JSON.stringify(S))}catch(x){}};
+const H=()=>S.hh.find(h=>h.id===S.cur);
+const mo=x=>x.amount/FREQ[x.freq][1];
+const sum=l=>l.reduce((a,x)=>a+mo(x),0);
+const eur=n=>n.toLocaleString("de-DE",{style:"currency",currency:"EUR"});
+const esc=s=>String(s).replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
+const dlg=document.getElementById("dlg");
+
+function render(){
+  const sel=document.getElementById("hh");
+  sel.innerHTML=S.hh.map(h=>`<option value="${h.id}"${h.id===S.cur?" selected":""}>${esc(h.name)}</option>`).join("");
+  const h=H();
+  const inc=h.persons.reduce((a,p)=>a+sum(p.inc),0),exp=h.persons.reduce((a,p)=>a+sum(p.exp),0),bal=inc-exp;
+  const cats={};h.persons.forEach(p=>p.exp.forEach(x=>cats[x.cat]=(cats[x.cat]||0)+mo(x)));
+  const cl=Object.entries(cats).sort((a,b)=>b[1]-a[1]),mx=cl.length?cl[0][1]:1;
+  let o=`<div class="grid kpis">
+   <div class="card kpi"><small>Einnahmen / Monat</small><b class="in">${eur(inc)}</b></div>
+   <div class="card kpi"><small>Ausgaben / Monat</small><b class="out">${eur(exp)}</b></div>
+   <div class="card kpi"><small>Verfügbares Budget</small><b class="${bal<0?"out":"in"}">${eur(bal)}</b></div>
+   <div class="card kpi"><small>Ausgaben / Jahr</small><b>${eur(exp*12)}</b></div></div>
+   <div class="grid ov"><div class="card"><div class="ph"><h2>Übersicht pro Person</h2></div>
+   <table><tr><th>Person</th><th class="n">Einnahmen</th><th class="n">Ausgaben</th><th class="n">Saldo</th></tr>
+   ${h.persons.map(p=>{const i=sum(p.inc),a=sum(p.exp);return`<tr><td>${esc(p.name)}</td><td class="n in">${eur(i)}</td><td class="n out">${eur(a)}</td><td class="n">${eur(i-a)}</td></tr>`}).join("")||`<tr><td colspan="4" class="empty">Noch keine Personen.</td></tr>`}
+   </table></div>
+   <div class="card"><div class="ph"><h2>Ausgaben nach Kategorie</h2></div>
+   ${cl.map(([c,v])=>`<div class="bar"><span>${esc(c)}</span><span><i style="width:${v/mx*100}%"></i></span><span>${eur(v)}</span></div>`).join("")||`<div class="empty">Keine Ausgaben.</div>`}</div></div>
+   <div class="ph" style="margin-top:20px"><h2 style="font-size:18px">Personen</h2><button class="p" data-a="pAdd">+ Person</button></div><div class="grid ov">`;
+  h.persons.forEach(p=>{o+=`<div class="card"><div class="ph"><h2>${esc(p.name)}</h2><button class="s k" data-a="pMenu" data-p="${p.id}" aria-label="Menü">⋯</button></div>`+
+   list(p,"inc","Einnahmen")+list(p,"exp","Ausgaben")+`<div class="sum" style="background:var(--${sum(p.inc)-sum(p.exp)<0?"outb":"inb"})"><span>Saldo / Monat</span><span>${eur(sum(p.inc)-sum(p.exp))}</span></div></div>`});
+  document.getElementById("app").innerHTML=o+"</div>";
+}
+function list(p,t,title){
+  const l=p[t],c=t==="inc"?"in":"out";
+  return`<div class="sec"><b>${title} <span class="${c}">${eur(sum(l))}</span></b><button class="s" data-a="eAdd" data-p="${p.id}" data-t="${t}">+ Hinzufügen</button></div>`+
+  (l.length?`<table>${l.map(x=>`<tr><td>${esc(x.name)}<div class="tag">${esc(x.cat)} · ${FREQ[x.freq][0]}</div></td>
+  <td class="a ${c}">${eur(x.amount)}${x.freq!=="m"?`<div class="tag">${eur(mo(x))}/Mon.</div>`:""}</td>
+  <td class="a"><button class="s k" data-a="eMenu" data-p="${p.id}" data-t="${t}" data-i="${x.id}" aria-label="Menü">⋯</button></td></tr>`).join("")}</table>`:`<div class="empty">Noch keine Einträge.</div>`);
+}
+function ask(html,ok){
+  dlg.innerHTML=html+`<div class="row"><button id="cx">Abbrechen</button><button id="ok" class="p">Speichern</button></div>`;
+  dlg.showModal();
+  document.getElementById("cx").onclick=()=>dlg.close();
+  document.getElementById("ok").onclick=()=>{if(ok()!==false){dlg.close();save();render()}};
+  const f=dlg.querySelector("input");if(f)f.focus();
+}
+function nameDlg(title,val,cb){
+  ask(`<h2>${title}</h2><label>Name</label><input id="nm" value="${esc(val)}">`,()=>{const v=document.getElementById("nm").value.trim();if(!v)return false;cb(v)});
+}
+function entryDlg(p,t,x){
+  const cats=t==="inc"?ICATS:CATS,isNew=!x;x=x||{name:"",cat:cats[0],amount:"",freq:"m"};
+  ask(`<h2>${t==="inc"?"Einnahme":"Ausgabe"} ${isNew?"hinzufügen":"bearbeiten"} (${esc(p.name)})</h2>
+  <label>Bezeichnung</label><input id="n" value="${esc(x.name)}">
+  <label>Betrag (€)</label><input id="a" type="number" step="0.01" min="0" value="${x.amount}">
+  <label>Kategorie</label><select id="c">${cats.map(c=>`<option${c===x.cat?" selected":""}>${c}</option>`).join("")}</select>
+  <label>Rhythmus</label><select id="f">${Object.entries(FREQ).map(([k,v])=>`<option value="${k}"${k===x.freq?" selected":""}>${v[0]}</option>`).join("")}</select>`,()=>{
+    const n=document.getElementById("n").value.trim(),a=parseFloat(document.getElementById("a").value);
+    if(!n||isNaN(a)||a<0)return false;
+    const d={name:n,amount:a,cat:document.getElementById("c").value,freq:document.getElementById("f").value};
+    if(isNew)p[t].push({id:uid(),...d});else Object.assign(x,d);
+  });
+}
+document.getElementById("hh").onchange=ev=>{S.cur=ev.target.value;save();render()};
+document.getElementById("hAdd").onclick=()=>nameDlg("Neuer Haushalt","",v=>{const h={id:uid(),name:v,persons:[]};S.hh.push(h);S.cur=h.id});
+function snapshot(){return JSON.stringify({app:"haushaltsbuch",version:1,exported:new Date().toISOString(),hh:S.hh},null,1)}
+function importData(txt){
+  const o=JSON.parse(txt),a=Array.isArray(o)?o:o.hh;
+  if(!Array.isArray(a)||!a.length)throw 0;
+  const num=v=>{v=parseFloat(v);return isFinite(v)&&v>=0?v:0};
+  const ne=x=>({id:uid(),name:String(x.name||"").slice(0,80),cat:CATS.concat(ICATS).includes(x.cat)?x.cat:"Sonstiges",amount:num(x.amount),freq:FREQ[x.freq]?x.freq:"m"});
+  const nh=a.map(h=>({id:uid(),name:String(h.name||"Haushalt").slice(0,80),persons:(h.persons||[]).map(p=>({id:uid(),name:String(p.name||"Person").slice(0,80),inc:(p.inc||[]).map(ne),exp:(p.exp||[]).map(ne)}))}));
+  if(S.hh.length===1&&!S.hh[0].persons.length)S.hh=nh;else S.hh.push(...nh);
+  S.cur=nh[0].id;
+}
+function dataDlg(){
+  dlg.innerHTML=`<h2>Export / Import</h2>
+  <label>Export (Sicherung aller Haushalte)</label>
+  <div class="row" style="margin:0 0 6px;justify-content:flex-start"><button id="ex" class="p">Als Datei speichern</button><button id="cp">Text kopieren</button></div>
+  <textarea id="et" readonly></textarea>
+  <label>Import</label><input type="file" id="fi" accept=".json,application/json">
+  <textarea id="it" placeholder="…oder gesicherten Text hier einfügen" style="margin-top:8px"></textarea>
+  <div id="ms" class="tag" style="margin-top:8px"></div>
+  <div class="row"><button id="cx">Schließen</button><button id="ok" class="p">Importieren</button></div>`;
+  dlg.showModal();
+  const $=id=>document.getElementById(id),ms=t=>$("ms").textContent=t;
+  $("et").value=snapshot();
+  $("cx").onclick=()=>dlg.close();
+  $("ex").onclick=async()=>{
+    try{const d=window.claude&&await claude.use("downloads");
+      if(d){await d.save({filename:"haushaltsbuch-"+new Date().toISOString().slice(0,10)+".json",data:$("et").value});ms("Datei gespeichert.");return}
+    }catch(x){if(x&&x.code==="declined"){ms("Abgebrochen.");return}}
+    ms("Direktes Speichern ist hier nicht möglich – bitte den Text kopieren und selbst ablegen.");
+  };
+  $("cp").onclick=async()=>{
+    const t=$("et").value;
+    try{await navigator.clipboard.writeText(t);ms("In die Zwischenablage kopiert.");return}catch(x){}
+    $("et").select();let k=false;try{k=document.execCommand("copy")}catch(x){}
+    ms(k?"Kopiert.":"Bitte den markierten Text manuell kopieren.");
+  };
+  $("fi").onchange=async ev=>{const f=ev.target.files[0];if(!f)return;
+    try{$("it").value=await f.text();ms("Datei geladen – jetzt auf „Importieren“ klicken.")}catch(x){ms("Datei konnte nicht gelesen werden.")}};
+  $("ok").onclick=()=>{
+    try{importData($("it").value);save();render();dlg.close()}catch(x){ms("Import fehlgeschlagen: Die Daten sind ungültig.")}
+  };
+}
+document.getElementById("hData").onclick=dataDlg;
+function closeMenu(){document.getElementById("menu").hidden=true}
+document.addEventListener("click",closeMenu,true);
+function openMenu(btn,items){
+  const m=document.getElementById("menu");m.innerHTML="";
+  items.forEach(([l,fn,c])=>{const b=document.createElement("button");b.textContent=l;if(c)b.className=c;b.onclick=fn;m.appendChild(b)});
+  m.hidden=false;
+  const r=btn.getBoundingClientRect();
+  m.style.top=r.bottom+4+"px";
+  m.style.left=Math.max(8,Math.min(r.right-m.offsetWidth,innerWidth-m.offsetWidth-8))+"px";
+}
+function confirmDlg(title,msg,label,fn){
+  dlg.innerHTML=`<h2>${title}</h2><p>${msg}</p><div class="row">${label?'<button id="cx">Abbrechen</button>':''}<button id="ok" class="p ${label?'x':''}">${label||'OK'}</button></div>`;
+  dlg.showModal();
+  if(label)document.getElementById("cx").onclick=()=>dlg.close();
+  document.getElementById("ok").onclick=()=>{dlg.close();if(fn){fn();save();render()}};
+}
+document.getElementById("hMenu").onclick=ev=>openMenu(ev.currentTarget,[
+  ["Umbenennen",()=>nameDlg("Haushalt umbenennen",H().name,v=>H().name=v)],
+  ["Löschen",()=>{
+    if(S.hh.length<2)return confirmDlg("Nicht möglich","Der letzte Haushalt kann nicht gelöscht werden.");
+    confirmDlg("Haushalt löschen?",`„${esc(H().name)}“ wird mit allen Personen und Einträgen gelöscht.`,"Löschen",()=>{S.hh=S.hh.filter(h=>h.id!==S.cur);S.cur=S.hh[0].id});
+  },"d"]]);
+document.getElementById("app").onclick=ev=>{
+  const b=ev.target.closest("button[data-a]");if(!b)return;
+  const h=H(),p=h.persons.find(q=>q.id===b.dataset.p),t=b.dataset.t,a=b.dataset.a;
+  if(a==="pAdd")nameDlg("Neue Person","",v=>h.persons.push({id:uid(),name:v,inc:[],exp:[]}));
+  else if(a==="pMenu")openMenu(b,[
+    ["Umbenennen",()=>nameDlg("Person umbenennen",p.name,v=>p.name=v)],
+    ["Löschen",()=>confirmDlg("Person löschen?",`„${esc(p.name)}“ wird mit allen Einnahmen und Ausgaben gelöscht.`,"Löschen",()=>{h.persons=h.persons.filter(q=>q!==p)}),"d"]]);
+  else if(a==="eAdd")entryDlg(p,t);
+  else if(a==="eMenu"){const x=p[t].find(y=>y.id===b.dataset.i);openMenu(b,[
+    ["Bearbeiten",()=>entryDlg(p,t,x)],
+    ["Löschen",()=>{p[t]=p[t].filter(y=>y!==x);save();render()},"d"]])}
+};
+render();
+</script>
+</body>
+</html>
